@@ -232,7 +232,23 @@ class LanguageIDModel(object):
         self.languages = ["English", "Spanish", "Finnish", "Dutch", "Polish"]
 
         # Initialize your model parameters here
-        "*** YOUR CODE HERE ***"
+        self.hidden_size = 256
+        self.batch_size = 100
+        self.learning_rate = 0.1
+        
+        # Parameters for f_initial: x_0 -> h_1
+        # Linear transformation: x_0 * W_x
+        self.w_x = nn.Parameter(self.num_chars, self.hidden_size)
+        self.b_initial = nn.Parameter(1, self.hidden_size)
+        
+        # Parameters for f: (h_i, x_i) -> h_{i+1}
+        # We need W_x (same as f_initial) and W_hidden for h_i
+        self.w_hidden = nn.Parameter(self.hidden_size, self.hidden_size)
+        self.b_recurrent = nn.Parameter(1, self.hidden_size)
+        
+        # Output layer: final hidden state -> language scores (5 languages)
+        self.w_output = nn.Parameter(self.hidden_size, 5)
+        self.b_output = nn.Parameter(1, 5)
 
     def run(self, xs):
         """
@@ -263,7 +279,22 @@ class LanguageIDModel(object):
             A node with shape (batch_size x 5) containing predicted scores
                 (also called logits)
         """
-        "*** YOUR CODE HERE ***"
+        # Process first character with f_initial
+        # h_1 = f_initial(x_0) = ReLU(x_0 * W_x + b_initial)
+        h = nn.ReLU(nn.AddBias(nn.Linear(xs[0], self.w_x), self.b_initial))
+        
+        # Process subsequent characters with f
+        # h_{i+1} = f(h_i, x_i) = ReLU(x_i * W_x + h_i * W_hidden + b_recurrent)
+        for i in range(1, len(xs)):
+            z_x = nn.Linear(xs[i], self.w_x)
+            z_h = nn.Linear(h, self.w_hidden)
+            z = nn.Add(z_x, z_h)
+            h = nn.ReLU(nn.AddBias(z, self.b_recurrent))
+        
+        # Output layer: convert final hidden state to language scores
+        # No ReLU in the output layer
+        output = nn.AddBias(nn.Linear(h, self.w_output), self.b_output)
+        return output
 
     def get_loss(self, xs, y):
         """
@@ -279,10 +310,33 @@ class LanguageIDModel(object):
             y: a node with shape (batch_size x 5)
         Returns: a loss node
         """
-        "*** YOUR CODE HERE ***"
+        pred = self.run(xs)
+        return nn.SoftmaxLoss(pred, y)
 
     def train(self, dataset):
         """
         Trains the model.
         """
-        "*** YOUR CODE HERE ***"
+        max_epochs = 30
+        target_accuracy = 0.85  # 85% validation accuracy threshold
+        
+        for epoch in range(max_epochs):
+            for xs, y in dataset.iterate_once(self.batch_size):
+                loss = self.get_loss(xs, y)
+                grads = nn.gradients(loss, [
+                    self.w_x, self.b_initial,
+                    self.w_hidden, self.b_recurrent,
+                    self.w_output, self.b_output
+                ])
+                
+                self.w_x.update(grads[0], -self.learning_rate)
+                self.b_initial.update(grads[1], -self.learning_rate)
+                self.w_hidden.update(grads[2], -self.learning_rate)
+                self.b_recurrent.update(grads[3], -self.learning_rate)
+                self.w_output.update(grads[4], -self.learning_rate)
+                self.b_output.update(grads[5], -self.learning_rate)
+            
+            # Check validation accuracy
+            val_accuracy = dataset.get_validation_accuracy()
+            if val_accuracy >= target_accuracy:
+                break
