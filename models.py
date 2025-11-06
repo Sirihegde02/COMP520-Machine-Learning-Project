@@ -143,7 +143,17 @@ class DigitClassificationModel(object):
     """
     def __init__(self):
         # Initialize your model parameters here
-        "*** YOUR CODE HERE ***"
+        self.hidden_size = 200
+        self.batch_size = 100
+        self.learning_rate = 0.5
+        
+        # First layer: input (784) -> hidden (200)
+        self.w1 = nn.Parameter(784, self.hidden_size)
+        self.b1 = nn.Parameter(1, self.hidden_size)
+        
+        # Second layer: hidden (200) -> output (10)
+        self.w2 = nn.Parameter(self.hidden_size, 10)
+        self.b2 = nn.Parameter(1, 10)
 
     def run(self, x):
         """
@@ -159,7 +169,13 @@ class DigitClassificationModel(object):
             A node with shape (batch_size x 10) containing predicted scores
                 (also called logits)
         """
-        "*** YOUR CODE HERE ***"
+        # First layer: Linear transformation + bias + ReLU
+        h1_preact = nn.AddBias(nn.Linear(x, self.w1), self.b1)
+        h1 = nn.ReLU(h1_preact)
+        
+        # Second layer: Linear transformation + bias (NO ReLU at the end)
+        out = nn.AddBias(nn.Linear(h1, self.w2), self.b2)
+        return out
 
     def get_loss(self, x, y):
         """
@@ -174,13 +190,30 @@ class DigitClassificationModel(object):
             y: a node with shape (batch_size x 10)
         Returns: a loss node
         """
-        "*** YOUR CODE HERE ***"
+        pred = self.run(x)
+        return nn.SoftmaxLoss(pred, y)
 
     def train(self, dataset):
         """
         Trains the model.
         """
-        "*** YOUR CODE HERE ***"
+        max_epochs = 50
+        target_accuracy = 0.975  # 97.5% validation accuracy threshold
+        
+        for epoch in range(max_epochs):
+            for x, y in dataset.iterate_once(self.batch_size):
+                loss = self.get_loss(x, y)
+                grads = nn.gradients(loss, [self.w1, self.b1, self.w2, self.b2])
+                
+                self.w1.update(grads[0], -self.learning_rate)
+                self.b1.update(grads[1], -self.learning_rate)
+                self.w2.update(grads[2], -self.learning_rate)
+                self.b2.update(grads[3], -self.learning_rate)
+            
+            # Check validation accuracy
+            val_accuracy = dataset.get_validation_accuracy()
+            if val_accuracy >= target_accuracy:
+                break
 
 class LanguageIDModel(object):
     """
