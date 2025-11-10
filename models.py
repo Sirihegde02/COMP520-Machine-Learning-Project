@@ -59,10 +59,10 @@ class RegressionModel(object):
     to approximate sin(x) on the interval [-2pi, 2pi] to reasonable precision.
     """
     def __init__(self):
-        self.hidden_size1 = 512
-        self.hidden_size2 = 256
+        self.hidden_size1 = 640
+        self.hidden_size2 = 384
         self.batch_size = 200
-        self.learning_rate = 0.05
+        self.learning_rate = 0.03
 
         self.w1 = nn.Parameter(1, self.hidden_size1)
         self.b1 = nn.Parameter(1, self.hidden_size1)
@@ -104,7 +104,7 @@ class RegressionModel(object):
         """
         Trains the model.
         """
-        max_epochs = 5000
+        max_epochs = 10000
         target_loss = 0.0195
         epoch = 0
         while epoch < max_epochs:
@@ -142,16 +142,13 @@ class DigitClassificationModel(object):
     working on this part of the project.)
     """
     def __init__(self):
-        # Initialize your model parameters here
         self.hidden_size = 200
         self.batch_size = 100
         self.learning_rate = 0.5
         
-        # First layer: input (784) -> hidden (200)
         self.w1 = nn.Parameter(784, self.hidden_size)
         self.b1 = nn.Parameter(1, self.hidden_size)
         
-        # Second layer: hidden (200) -> output (10)
         self.w2 = nn.Parameter(self.hidden_size, 10)
         self.b2 = nn.Parameter(1, 10)
 
@@ -169,11 +166,9 @@ class DigitClassificationModel(object):
             A node with shape (batch_size x 10) containing predicted scores
                 (also called logits)
         """
-        # First layer: Linear transformation + bias + ReLU
         h1_preact = nn.AddBias(nn.Linear(x, self.w1), self.b1)
         h1 = nn.ReLU(h1_preact)
         
-        # Second layer: Linear transformation + bias (NO ReLU at the end)
         out = nn.AddBias(nn.Linear(h1, self.w2), self.b2)
         return out
 
@@ -198,7 +193,7 @@ class DigitClassificationModel(object):
         Trains the model.
         """
         max_epochs = 50
-        target_accuracy = 0.975  # 97.5% validation accuracy threshold
+        target_accuracy = 0.975
         
         for epoch in range(max_epochs):
             for x, y in dataset.iterate_once(self.batch_size):
@@ -210,7 +205,6 @@ class DigitClassificationModel(object):
                 self.w2.update(grads[2], -self.learning_rate)
                 self.b2.update(grads[3], -self.learning_rate)
             
-            # Check validation accuracy
             val_accuracy = dataset.get_validation_accuracy()
             if val_accuracy >= target_accuracy:
                 break
@@ -231,22 +225,16 @@ class LanguageIDModel(object):
         self.num_chars = 47
         self.languages = ["English", "Spanish", "Finnish", "Dutch", "Polish"]
 
-        # Initialize your model parameters here
-        self.hidden_size = 256
+        self.hidden_size = 512
         self.batch_size = 100
-        self.learning_rate = 0.1
+        self.learning_rate = 0.08
         
-        # Parameters for f_initial: x_0 -> h_1
-        # Linear transformation: x_0 * W_x
         self.w_x = nn.Parameter(self.num_chars, self.hidden_size)
         self.b_initial = nn.Parameter(1, self.hidden_size)
         
-        # Parameters for f: (h_i, x_i) -> h_{i+1}
-        # We need W_x (same as f_initial) and W_hidden for h_i
         self.w_hidden = nn.Parameter(self.hidden_size, self.hidden_size)
         self.b_recurrent = nn.Parameter(1, self.hidden_size)
         
-        # Output layer: final hidden state -> language scores (5 languages)
         self.w_output = nn.Parameter(self.hidden_size, 5)
         self.b_output = nn.Parameter(1, 5)
 
@@ -279,20 +267,14 @@ class LanguageIDModel(object):
             A node with shape (batch_size x 5) containing predicted scores
                 (also called logits)
         """
-        # Process first character with f_initial
-        # h_1 = f_initial(x_0) = ReLU(x_0 * W_x + b_initial)
         h = nn.ReLU(nn.AddBias(nn.Linear(xs[0], self.w_x), self.b_initial))
         
-        # Process subsequent characters with f
-        # h_{i+1} = f(h_i, x_i) = ReLU(x_i * W_x + h_i * W_hidden + b_recurrent)
         for i in range(1, len(xs)):
             z_x = nn.Linear(xs[i], self.w_x)
             z_h = nn.Linear(h, self.w_hidden)
             z = nn.Add(z_x, z_h)
             h = nn.ReLU(nn.AddBias(z, self.b_recurrent))
         
-        # Output layer: convert final hidden state to language scores
-        # No ReLU in the output layer
         output = nn.AddBias(nn.Linear(h, self.w_output), self.b_output)
         return output
 
@@ -317,8 +299,8 @@ class LanguageIDModel(object):
         """
         Trains the model.
         """
-        max_epochs = 30
-        target_accuracy = 0.85  # 85% validation accuracy threshold
+        max_epochs = 20
+        target_accuracy = 0.86
         
         for epoch in range(max_epochs):
             for xs, y in dataset.iterate_once(self.batch_size):
@@ -336,7 +318,6 @@ class LanguageIDModel(object):
                 self.w_output.update(grads[4], -self.learning_rate)
                 self.b_output.update(grads[5], -self.learning_rate)
             
-            # Check validation accuracy
             val_accuracy = dataset.get_validation_accuracy()
             if val_accuracy >= target_accuracy:
                 break
